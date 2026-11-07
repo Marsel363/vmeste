@@ -1,0 +1,34 @@
+/* Telegram's header and device cutouts must not overlap the app or bottom tabs. */
+html.telegram-app{
+ color-scheme:light;
+ --vmeste-tg-top:calc(var(--tg-safe-area-inset-top,0px) + var(--tg-content-safe-area-inset-top,0px));
+ --vmeste-tg-bottom:calc(var(--tg-safe-area-inset-bottom,0px) + var(--tg-content-safe-area-inset-bottom,0px));
+ --vmeste-tg-left:calc(var(--tg-safe-area-inset-left,0px) + var(--tg-content-safe-area-inset-left,0px));
+ --vmeste-tg-right:calc(var(--tg-safe-area-inset-right,0px) + var(--tg-content-safe-area-inset-right,0px));
+}
+.telegram-app body,.telegram-app .auth-page,.telegram-app .loading-screen{
+ min-height:var(--tg-viewport-stable-height,100dvh);
+}
+.telegram-app .layout{padding-top:calc(30px + var(--vmeste-tg-top))}
+.telegram-app .auth-art{padding-top:calc(24px + var(--vmeste-tg-top))}
+.telegram-app .auth-form-wrap{padding-bottom:calc(45px + var(--vmeste-tg-bottom))}
+.telegram-app .modal-backdrop{
+ padding-top:calc(16px + var(--vmeste-tg-top));
+ padding-bottom:calc(16px + var(--vmeste-tg-bottom));
+}
+.telegram-app .modal{
+ max-height:calc(var(--tg-viewport-height,100dvh) - var(--vmeste-tg-top) - var(--vmeste-tg-bottom) - 32px);
+}
+@media(max-width:860px){
+ .telegram-app .layout{
+  padding-top:calc(20px + var(--vmeste-tg-top));
+  padding-bottom:calc(112px + max(env(safe-area-inset-bottom,0px),var(--vmeste-tg-bottom)));
+  padding-left:max(13px,var(--vmeste-tg-left));
+  padding-right:max(13px,var(--vmeste-tg-right));
+ }
+ .telegram-app .sidebar{
+  padding-left:max(8px,var(--vmeste-tg-left));
+  padding-right:max(8px,var(--vmeste-tg-right));
+  padding-bottom:calc(6px + max(env(safe-area-inset-bottom,0px),var(--vmeste-tg-bottom)));
+ }
+}
