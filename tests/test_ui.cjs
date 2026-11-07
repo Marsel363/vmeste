@@ -1,0 +1,32 @@
+// Run with Node.js: node tests/test_ui.cjs
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const source=fs.readFileSync(require('node:path').join(__dirname,'../static/app.js'),'utf8');
+const context=vm.createContext({document:{getElementById:()=>({})},navigator:{onLine:true},Intl,Date,console});
+vm.runInContext(source.slice(0,source.indexOf("app.addEventListener('click'")),context);
+function run(s){return vm.runInContext(s,context)}
+run(`state.me={members:[]};state.day='2026-11-09';state.sources={mgsu:{status:'partial',reliable:true,successful_at:new Date().toISOString(),coverage_from:'2026-11-02',coverage_to:'2026-11-08',count:14}};`);
+assert.equal(run("hasReliableSchedule('mgsu','2026-11-09')"),false);
+assert.equal(run("hasReliableSchedule('mgsu','2026-11-03')"),true);
+assert.match(run("eventsHtml('mgsu','2026-11-09')"),/Нет данных на эту дату/);
+assert.match(run("eventsHtml('mgsu','2026-11-09')"),/Источник дал данные только/);
+assert.doesNotMatch(run("eventsHtml('mgsu','2026-11-09')"),/Импорт ещё не выполнен/);
+assert.equal(run("sourceSummary('mgsu')"),'Загружена только одна неделя');
+assert.equal(run("overlapSlots('2026-11-09')"),null);
+run("state.events=[{slot:'mgsu',date:'2026-11-09',start:'10:00',end:'11:20',title:'Ручная пара',source:'manual'}]");
+assert.match(run('compareHtml()'),/Нет данных/);
+assert.doesNotMatch(run('compareHtml()'),/>Свободен</);
+run("moscowDay=()=> '2026-11-09';moscowTime=()=> '12:00'");
+assert.equal(run("status('mgsu').kind"),'unknown');
+run("state.sources.mgsu.status='error';state.sources.mgsu.message='Источник недоступен'");
+assert.equal(run("hasReliableSchedule('mgsu','2026-11-03')"),false);
+run("state.sources.mgsu.status='partial';state.online=false");
+assert.equal(run("hasReliableSchedule('mgsu','2026-11-03')"),false);
+run("state.events=[];state.online=true;state.sources={}");
+assert.match(run("eventsHtml('mgsu','2026-11-09')"),/Импорт ещё не выполнен/);
+run("state.events=[{id:1,slot:'mgsu',date:'2026-11-03',start:'10:00',end:'11:20',title:'Пара',source:'raspika_web'}]");
+assert.match(run("eventsHtml('mgsu','2026-11-03')"),/Расписание взято с/);
+run("state.sources.mgsu={status:'baseline',message:'Используется сохранённый PDF',reliable:false};state.events=[{id:1,slot:'mgsu',date:'2026-11-09',start:'11:30',end:'12:50',title:'Строительные материалы',source:'mgsu_pdf'}]");
+assert.match(run("eventsHtml('mgsu','2026-11-09')"),/официального PDF МГСУ/);
+assert.match(run("sourceSummary('mgsu')"),/сохранённого PDF/);
+assert.equal(run("hasReliableSchedule('mgsu','2026-11-09')"),false);
+console.log('UI: 17 assertions passed');

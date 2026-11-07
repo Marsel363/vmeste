@@ -1,0 +1,13 @@
+{
+  "sha256": "07a5606eb8b6461de3e310fe4bb257874e99a4d11796a8b1627001a69c756026",
+  "verified_on": "07.11.2026",
+  "group": "ИПГС 2к 64 so 08.05.01_ВЫСОТ",
+  "subgroup": 1,
+  "source": "https://mgsu.ru/student/Raspisanie_zanyatii_i_ekzamenov/fayly-raspisaniya-dlya-skachivaniya/IPGSc_2k%202010.pdf",
+  "week_one_monday": "2026-08-31",
+  "week_anchor": {
+    "number": 10,
+    "monday": "2026-11-02"
+  },
+  "parity": "upper_odd_lower_even"
+}
