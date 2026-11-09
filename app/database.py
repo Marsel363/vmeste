@@ -109,7 +109,26 @@ class LessonExclusion(Base):
         CheckConstraint('start < "end"', name='ck_exclusion_time'),
     )
 
+class LessonAttendance(Base):
+    __tablename__ = 'lesson_attendance'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    couple_id: Mapped[int] = mapped_column(ForeignKey('couples.id'), index=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey('users.id'), index=True)
+    source_key: Mapped[str] = mapped_column(String(64))
+    not_going: Mapped[bool] = mapped_column(Boolean, default=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, onupdate=now)
+    __table_args__ = (UniqueConstraint('owner_id','source_key',name='uq_lesson_attendance'),)
+
+class DayAttendance(Base):
+    __tablename__ = 'day_attendance'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    couple_id: Mapped[int] = mapped_column(ForeignKey('couples.id'), index=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey('users.id'), index=True)
+    date: Mapped[str] = mapped_column(String(10), index=True)
+    not_going: Mapped[bool] = mapped_column(Boolean, default=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, onupdate=now)
+    __table_args__ = (UniqueConstraint('owner_id','date',name='uq_day_attendance'),)
+
 def init_db():
     Base.metadata.create_all(engine)
-
 

@@ -6,7 +6,7 @@ from sqlalchemy.pool import StaticPool
 from fastapi.testclient import TestClient
 from app import main
 from app.runtime_config import validate_hosted_config,allowed_origins
-from app.database import Base,Couple,User,Event,SyncState,PersonalTask,LessonExclusion
+from app.database import Base,Couple,User,Event,SyncState,PersonalTask,LessonExclusion,DayAttendance,LessonAttendance
 from app.transfer_database import copy_calendar
 import sqlite3
 
@@ -74,6 +74,22 @@ def test_windows_file_source_is_read_only_and_not_modified(tmp_path):
         assert file.read_bytes()==before
     finally:source.dispose();target.dispose()
 
+def test_transfer_of_v017_without_attendance_tables():
+    source=memory_engine();target=memory_engine();Base.metadata.create_all(source)
+    DayAttendance.__table__.drop(source);LessonAttendance.__table__.drop(source)
+    with source.begin() as db:
+        db.execute(Couple.__table__.insert(),{'id':1,'code':'keep'})
+        db.execute(User.__table__.insert(),{'id':1,'couple_id':1,'username':'existing','display_name':'Имя','password_hash':'keep','slot':'mai'})
+        db.execute(PersonalTask.__table__.insert(),{'id':2,'couple_id':1,'owner_id':1,'date':'2026-11-09','title':'Сохранить дело'})
+        db.execute(LessonExclusion.__table__.insert(),{'id':3,'couple_id':1,'created_by':1,'slot':'mai','title_key':'физика','title':'Физика','weekday':0,'start':'10:00','end':'11:00'})
+    try:
+        counts=copy_calendar(source,target)
+        assert counts['personal_tasks']==1 and counts['lesson_exclusions']==1
+        assert counts['day_attendance']==counts['lesson_attendance']==0
+        from sqlalchemy import inspect
+        assert not inspect(source).has_table('day_attendance') and not inspect(source).has_table('lesson_attendance')
+    finally:source.dispose();target.dispose()
+
 def test_hosted_config_refuses_temporary_sqlite_and_missing_secret(monkeypatch):
     monkeypatch.setenv('APP_ENV','production');monkeypatch.setenv('SECRET_KEY','x'*40);monkeypatch.setenv('COOKIE_SECURE','1')
     monkeypatch.setenv('DATABASE_URL','sqlite:///vmeste.db')
@@ -109,5 +125,4 @@ def test_public_service_cannot_be_claimed_before_transfer(monkeypatch):
         response=client.post('/api/register',json={'username':'stranger','display_name':'Имя','password':'very-secure-pass','mode':'create'},
                              headers={'Origin':'http://localhost:8000','X-Vmeste-Client':'pwa'})
         assert response.status_code==403 and 'перенесён' in response.json()['detail']
-
 

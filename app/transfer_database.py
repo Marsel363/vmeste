@@ -25,7 +25,7 @@ def copy_calendar(source_engine,target_engine):
     with source_engine.connect() as source:
         # A read-only database from v0.1.5 predates personal tasks. Copy it
         # without modifying the source or silently skipping core tables.
-        rows={table.name:[] if table.name in ('personal_tasks','lesson_exclusions') and not inspect(source).has_table(table.name)
+        rows={table.name:[] if table.name in ('personal_tasks','lesson_exclusions','lesson_attendance','day_attendance') and not inspect(source).has_table(table.name)
               else [dict(row._mapping) for row in source.execute(select(table))] for table in tables}
     if not rows['couples'] or not rows['users']:
         raise ValueError('В исходной базе нет календаря и аккаунтов. Проверьте выбранный vmeste.db')
@@ -74,5 +74,4 @@ if __name__=='__main__':
     except Exception:
         print('Не удалось выполнить перенос. Проверьте доступ к Neon и строку подключения. Пароли и исходная база не менялись.')
         raise SystemExit(1)
-
 

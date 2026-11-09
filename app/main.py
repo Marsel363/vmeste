@@ -28,6 +28,7 @@ from .mgsu_web import get_web_schedule
 from .academic_calendar import academic_calendars
 from .tasks import tasks_for_user, register_task_routes
 from .exclusions import scope_for_event, event_key, rules_for_couple, exclusion_keys, serialize_rule, register_exclusion_routes
+from .attendance import attendance_for_couple, decorate_attendance, register_attendance_routes
 from .runtime_config import allowed_origins,validate_hosted_config,allow_create_couple
 
 ROOT=Path(__file__).parent.parent
@@ -222,7 +223,7 @@ async def lifespan(app):
         try: await task
         except asyncio.CancelledError:pass
 
-app=FastAPI(title='Вместе — два расписания',version='0.1.7',docs_url=None,redoc_url=None,lifespan=lifespan)
+app=FastAPI(title='Вместе — два расписания',version='0.1.8',docs_url=None,redoc_url=None,lifespan=lifespan)
 app.add_middleware(SessionMiddleware,secret_key=secret,same_site='lax',https_only=os.getenv('COOKIE_SECURE','0')=='1',max_age=60*60*24*30,session_cookie='vmeste_session')
 
 @app.middleware('http')
@@ -354,7 +355,8 @@ async def get_schedule(request:Request,date_from:str|None=None,date_to:str|None=
         events=db.scalars(select(Event).where(Event.couple_id==u.couple_id)).all()
         exclusions=rules_for_couple(db,u.couple_id)
         excluded=exclusion_keys(exclusions)
-        displayed=[serialize_event(e) for e in events if (e.active or json.loads(e.override_json or '{}')) and event_key(e) not in excluded]
+        owners,lesson_marks,day_marks,public_days=attendance_for_couple(db,u,a,b)
+        displayed=[decorate_attendance(e,serialize_event(e),u,owners,lesson_marks,day_marks) for e in events if (e.active or json.loads(e.override_json or '{}')) and event_key(e) not in excluded]
         displayed=[e for e in displayed if a<=e['date']<=b]
         displayed.sort(key=lambda x:(x['date'],x['start'],x['slot'],x['id']))
         states=db.scalars(select(SyncState).where(SyncState.couple_id==u.couple_id)).all()
@@ -365,11 +367,13 @@ async def get_schedule(request:Request,date_from:str|None=None,date_to:str|None=
                                 'coverage_from':s.coverage_from,'coverage_to':s.coverage_to} for s in states}
         return {'events':displayed,'tasks':tasks_for_user(db,u,a,b),'tasks_complete':True,
                 'tasks_coverage':{'from':a,'to':b},'sources':state_by_slot,
+                'attendance_days':public_days,'attendance_complete':True,'attendance_coverage':{'from':a,'to':b},
                 'exclusions':[serialize_rule(rule) for rule in exclusions],'exclusions_complete':True,
                 'academic_calendars':academic_calendars(),'server_now':datetime.now(MOSCOW).isoformat()}
 
 register_task_routes(app,get_user,notify)
 register_exclusion_routes(app,get_user,notify)
+register_attendance_routes(app,get_user,notify)
 
 class EventPayload(BaseModel):
     slot:str=Field(pattern=r'^(mai|mgsu)$')
@@ -495,5 +499,4 @@ def service_worker():return FileResponse(ROOT/'static'/'sw.js',media_type='appli
 
 @app.get('/healthz')
 def health():return {'ok':True}
-
 
