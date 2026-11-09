@@ -9,7 +9,7 @@ import getpass
 import os
 import sqlite3
 from pathlib import Path
-from sqlalchemy import create_engine,select,func,text
+from sqlalchemy import create_engine,select,func,text,inspect
 from sqlalchemy.engine import make_url
 from dotenv import load_dotenv
 from .database import Base
@@ -23,7 +23,10 @@ def copy_calendar(source_engine,target_engine):
     """A single target transaction; refuse every nonempty destination."""
     tables=list(Base.metadata.sorted_tables)
     with source_engine.connect() as source:
-        rows={table.name:[dict(row._mapping) for row in source.execute(select(table))] for table in tables}
+        # A read-only database from v0.1.5 predates personal tasks. Copy it
+        # without modifying the source or silently skipping core tables.
+        rows={table.name:[] if table.name=='personal_tasks' and not inspect(source).has_table(table.name)
+              else [dict(row._mapping) for row in source.execute(select(table))] for table in tables}
     if not rows['couples'] or not rows['users']:
         raise ValueError('В исходной базе нет календаря и аккаунтов. Проверьте выбранный vmeste.db')
     with target_engine.begin() as destination:
@@ -71,3 +74,4 @@ if __name__=='__main__':
     except Exception:
         print('Не удалось выполнить перенос. Проверьте доступ к Neon и строку подключения. Пароли и исходная база не менялись.')
         raise SystemExit(1)
+

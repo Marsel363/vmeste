@@ -1,4 +1,4 @@
-const CACHE='vmeste-shell-v11';
+const CACHE='vmeste-shell-v12';
 const SHELL=['/','/static/style.css','/static/app.js','/static/telegram.js','/static/telegram.css','/static/icons/icon-192.png','/static/icons/icon-512.png','/manifest.webmanifest'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('vmeste-shell-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
@@ -18,7 +18,7 @@ self.addEventListener('fetch',event=>{
    const saved=await caches.match('/');
    if(saved){return Promise.race([network.catch(()=>saved),new Promise(resolve=>setTimeout(()=>resolve(saved),2500))]);}
    try{return await network;}
-   catch{return new Response('<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Вместе</title><body><h1>Вместе</h1><p>Нужна связь с сервером для первого открытия приложения. Повторите попытку через минуту.</p><button onclick="location.reload()">Повторить</button></body></html>',{status:503,headers:{'Content-Type':'text/html; charset=utf-8'}});}
+   catch{return new Response('<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Р’РјРµСЃС‚Рµ</title><body><h1>Р’РјРµСЃС‚Рµ</h1><p>РќСѓР¶РЅР° СЃРІСЏР·СЊ СЃ СЃРµСЂРІРµСЂРѕРј РґР»СЏ РїРµСЂРІРѕРіРѕ РѕС‚РєСЂС‹С‚РёСЏ РїСЂРёР»РѕР¶РµРЅРёСЏ. РџРѕРІС‚РѕСЂРёС‚Рµ РїРѕРїС‹С‚РєСѓ С‡РµСЂРµР· РјРёРЅСѓС‚Сѓ.</p><button onclick="location.reload()">РџРѕРІС‚РѕСЂРёС‚СЊ</button></body></html>',{status:503,headers:{'Content-Type':'text/html; charset=utf-8'}});}
   })());
   return;
  }
@@ -30,3 +30,4 @@ self.addEventListener('fetch',event=>{
   return response;
  })());
 });
+

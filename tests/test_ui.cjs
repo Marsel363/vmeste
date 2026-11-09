@@ -35,7 +35,7 @@ run("state.me={authenticated:true,members:[],invite_code:null,user:{name:'Имя
 for(const status of ['baseline','error','empty','unverified','partial','ok','never']){
  for(const day of ['2026-11-07','2026-11-08','2026-11-09']){
   run(`state.day=${JSON.stringify(day)};state.sources={mai:{status:${JSON.stringify(status)},message:'Загружено 112 занятий: СЛУЖЕБНЫЕ_ДАННЫЕ',count:112,reliable:false},mgsu:{status:${JSON.stringify(status)},message:'Загружено 112 занятий: СЛУЖЕБНЫЕ_ДАННЫЕ',count:112,reliable:false}}`);
-  for(const view of ['today','week','compare']){
+  for(const view of ['today','week','compare','tasks']){
    run(`state.view=${JSON.stringify(view)};renderMain()`);
    assert.doesNotMatch(run('app.innerHTML'),/СЛУЖЕБНЫЕ_ДАННЫЕ|Загружено|Импорт|PDF|Источник дал|Не все расписания удалось обновить/);
   }
@@ -45,3 +45,4 @@ for(const status of ['baseline','error','empty','unverified','partial','ok','nev
 }
 assert.equal(run("status('mgsu').kind"),'unknown');
 console.log('UI and all-view source-detail isolation: passed');
+

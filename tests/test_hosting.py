@@ -6,7 +6,7 @@ from sqlalchemy.pool import StaticPool
 from fastapi.testclient import TestClient
 from app import main
 from app.runtime_config import validate_hosted_config,allowed_origins
-from app.database import Base,Couple,User,Event,SyncState
+from app.database import Base,Couple,User,Event,SyncState,PersonalTask
 from app.transfer_database import copy_calendar
 import sqlite3
 
@@ -33,6 +33,19 @@ def test_transfer_refuses_empty_source():
     source=memory_engine();target=memory_engine();Base.metadata.create_all(source)
     try:
         with pytest.raises(ValueError,match='нет календаря'):copy_calendar(source,target)
+    finally:source.dispose();target.dispose()
+
+def test_transfer_of_previous_version_without_tasks_table():
+    source=memory_engine();target=memory_engine();Base.metadata.create_all(source)
+    PersonalTask.__table__.drop(source)
+    with source.begin() as db:
+        db.execute(Couple.__table__.insert(),{'id':1,'code':'keep'})
+        db.execute(User.__table__.insert(),{'id':1,'couple_id':1,'username':'existing','display_name':'Имя','password_hash':'keep','slot':'mai'})
+    try:
+        counts=copy_calendar(source,target)
+        assert counts['users']==1 and counts['personal_tasks']==0
+        from sqlalchemy import inspect
+        assert not inspect(source).has_table('personal_tasks')
     finally:source.dispose();target.dispose()
 
 def test_windows_file_source_is_read_only_and_not_modified(tmp_path):
@@ -82,3 +95,4 @@ def test_public_service_cannot_be_claimed_before_transfer(monkeypatch):
         response=client.post('/api/register',json={'username':'stranger','display_name':'Имя','password':'very-secure-pass','mode':'create'},
                              headers={'Origin':'http://localhost:8000','X-Vmeste-Client':'pwa'})
         assert response.status_code==403 and 'перенесён' in response.json()['detail']
+

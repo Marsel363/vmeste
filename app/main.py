@@ -26,6 +26,7 @@ from .sources import get_mai, get_mgsu, get_mgsu_public, ScheduleBatch, EmptySch
 from .mgsu_pdf import get_pdf_schedule
 from .mgsu_web import get_web_schedule
 from .academic_calendar import academic_calendars
+from .tasks import tasks_for_user, register_task_routes
 from .runtime_config import allowed_origins,validate_hosted_config,allow_create_couple
 
 ROOT=Path(__file__).parent.parent
@@ -220,7 +221,7 @@ async def lifespan(app):
         try: await task
         except asyncio.CancelledError:pass
 
-app=FastAPI(title='Вместе — два расписания',version='0.1.5',docs_url=None,redoc_url=None,lifespan=lifespan)
+app=FastAPI(title='Вместе — два расписания',version='0.1.6',docs_url=None,redoc_url=None,lifespan=lifespan)
 app.add_middleware(SessionMiddleware,secret_key=secret,same_site='lax',https_only=os.getenv('COOKIE_SECURE','0')=='1',max_age=60*60*24*30,session_cookie='vmeste_session')
 
 @app.middleware('http')
@@ -343,7 +344,9 @@ async def get_schedule(request:Request,date_from:str|None=None,date_to:str|None=
     a=date_from or (today-timedelta(days=7)).isoformat()
     b=date_to or (today+timedelta(days=35)).isoformat()
     if not re.fullmatch(r'20\d\d-\d\d-\d\d',a) or not re.fullmatch(r'20\d\d-\d\d-\d\d',b):raise HTTPException(422,'Неверный диапазон дат')
-    if (date.fromisoformat(b)-date.fromisoformat(a)).days not in range(0,185):raise HTTPException(422,'Диапазон не более 184 дней')
+    try: span=(date.fromisoformat(b)-date.fromisoformat(a)).days
+    except ValueError:raise HTTPException(422,'Неверная дата') from None
+    if span not in range(0,185):raise HTTPException(422,'Диапазон не более 184 дней')
     with SessionLocal() as db:
         # An override can move an imported event to another day: fetch all scoped events, filter on effective date.
         events=db.scalars(select(Event).where(Event.couple_id==u.couple_id)).all()
@@ -356,7 +359,11 @@ async def get_schedule(request:Request,date_from:str|None=None,date_to:str|None=
                                 'checked_at':aware(s.checked_at).isoformat() if s.checked_at else None,
                                 'successful_at':aware(s.successful_at).isoformat() if s.successful_at else None,
                                 'coverage_from':s.coverage_from,'coverage_to':s.coverage_to} for s in states}
-        return {'events':displayed,'sources':state_by_slot,'academic_calendars':academic_calendars(),'server_now':datetime.now(MOSCOW).isoformat()}
+        return {'events':displayed,'tasks':tasks_for_user(db,u,a,b),'tasks_complete':True,
+                'tasks_coverage':{'from':a,'to':b},'sources':state_by_slot,
+                'academic_calendars':academic_calendars(),'server_now':datetime.now(MOSCOW).isoformat()}
+
+register_task_routes(app,get_user,notify)
 
 class EventPayload(BaseModel):
     slot:str=Field(pattern=r'^(mai|mgsu)$')
@@ -482,3 +489,4 @@ def service_worker():return FileResponse(ROOT/'static'/'sw.js',media_type='appli
 
 @app.get('/healthz')
 def health():return {'ok':True}
+

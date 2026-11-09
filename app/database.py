@@ -1,7 +1,7 @@
 import os
 import secrets
 from datetime import datetime, timezone
-from sqlalchemy import create_engine, Integer, String, DateTime, ForeignKey, Boolean, Text, UniqueConstraint
+from sqlalchemy import create_engine, Integer, String, DateTime, ForeignKey, Boolean, Text, UniqueConstraint, CheckConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
 
 URL = os.getenv('DATABASE_URL', 'sqlite:///./vmeste.db')
@@ -71,5 +71,26 @@ class SyncState(Base):
     count: Mapped[int] = mapped_column(Integer, default=0)
     __table_args__ = (UniqueConstraint('couple_id', 'slot', name='uq_sync_slot'),)
 
+class PersonalTask(Base):
+    __tablename__ = 'personal_tasks'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    couple_id: Mapped[int] = mapped_column(ForeignKey('couples.id'), index=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey('users.id'), index=True)
+    date: Mapped[str] = mapped_column(String(10), index=True)
+    title: Mapped[str] = mapped_column(String(200))
+    note: Mapped[str] = mapped_column(Text, default='')
+    start: Mapped[str | None] = mapped_column(String(5), nullable=True)
+    end: Mapped[str | None] = mapped_column(String(5), nullable=True)
+    busy: Mapped[bool] = mapped_column(Boolean, default=False)
+    done: Mapped[bool] = mapped_column(Boolean, default=False)
+    revision: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, onupdate=now)
+    __table_args__ = (
+        CheckConstraint('(start IS NULL AND "end" IS NULL) OR (start IS NOT NULL AND "end" IS NOT NULL AND start < "end")', name='ck_task_time_pair'),
+        CheckConstraint('(NOT busy) OR (start IS NOT NULL AND "end" IS NOT NULL)', name='ck_task_busy_time'),
+    )
+
 def init_db():
     Base.metadata.create_all(engine)
+
