@@ -91,6 +91,25 @@ class PersonalTask(Base):
         CheckConstraint('(NOT busy) OR (start IS NOT NULL AND "end" IS NOT NULL)', name='ck_task_busy_time'),
     )
 
+class LessonExclusion(Base):
+    __tablename__ = 'lesson_exclusions'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    couple_id: Mapped[int] = mapped_column(ForeignKey('couples.id'), index=True)
+    created_by: Mapped[int] = mapped_column(ForeignKey('users.id'))
+    slot: Mapped[str] = mapped_column(String(6))
+    title_key: Mapped[str] = mapped_column(String(400))
+    title: Mapped[str] = mapped_column(String(200))
+    weekday: Mapped[int] = mapped_column(Integer)
+    start: Mapped[str] = mapped_column(String(5))
+    end: Mapped[str] = mapped_column(String(5))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    __table_args__ = (
+        UniqueConstraint('couple_id','slot','title_key','weekday','start','end',name='uq_lesson_exclusion'),
+        CheckConstraint('weekday >= 0 AND weekday <= 6', name='ck_exclusion_weekday'),
+        CheckConstraint('start < "end"', name='ck_exclusion_time'),
+    )
+
 def init_db():
     Base.metadata.create_all(engine)
+
 

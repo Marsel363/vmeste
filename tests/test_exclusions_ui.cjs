@@ -1,0 +1,22 @@
+const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),assert=require('node:assert/strict');
+const source=fs.readFileSync(path.join(__dirname,'../static/app.js'),'utf8');
+const context=vm.createContext({document:{getElementById:()=>({})},navigator:{onLine:true},window:{matchMedia:()=>({matches:false})},location:{hostname:'vmeste.example',protocol:'https:'},Intl,Date,console});
+vm.runInContext(source.slice(0,source.indexOf("app.addEventListener('click'")),context);
+const run=s=>vm.runInContext(s,context);
+run(`state.me={authenticated:true,members:[{slot:'mai',name:'Имя'}],user:{id:1,name:'Имя',username:'name',slot:'mai'}};state.day='2026-11-09';state.exclusionsComplete=true;state.exclusions=[{id:8,slot:'mai',title:'Теория вероятностей',weekday:0,start:'09:00',end:'10:30'}]`);
+const section=run("seriesExclusionHtml({exclusion_scope:{title:'Теория вероятностей',slot:'mai',weekday:0,start:'09:00',end:'10:30',token:'abc'}})");
+assert.match(section,/По понедельникам · 09:00 — 10:30/);
+assert.match(section,/Исключить на всех неделях/);
+assert.match(section,/id="exclusion-confirm" class="hidden"/);
+assert.match(section,/Другие дни и время останутся/);
+assert.match(section,/Да, исключить/);
+assert.equal(run('seriesExclusionHtml({})'),'');
+assert.match(run('settingsHtml()'),/Исключённые пары/);
+assert.match(run('settingsHtml()'),/data-restore-exclusion="8"/);
+assert.match(run('settingsHtml()'),/По понедельникам/);
+assert.doesNotMatch(run("seriesExclusionHtml({exclusion_scope:{title:'<img>',slot:'mai',weekday:0,start:'09:00',end:'10:30'}})"),/<img>/);
+run("state.online=false");assert.match(run('exclusionsHtml()'),/disabled/);
+run("state.online=true;state.exclusions=[]");assert.match(run('exclusionsHtml()'),/Исключённых пар нет/);
+assert.match(source,/scope_token:event.exclusion_scope.token/);
+console.log('Exclusion UI: exact weekday/time confirmation, restoration, escaped labels and offline guard passed');
+

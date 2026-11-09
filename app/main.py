@@ -27,6 +27,7 @@ from .mgsu_pdf import get_pdf_schedule
 from .mgsu_web import get_web_schedule
 from .academic_calendar import academic_calendars
 from .tasks import tasks_for_user, register_task_routes
+from .exclusions import scope_for_event, event_key, rules_for_couple, exclusion_keys, serialize_rule, register_exclusion_routes
 from .runtime_config import allowed_origins,validate_hosted_config,allow_create_couple
 
 ROOT=Path(__file__).parent.parent
@@ -221,7 +222,7 @@ async def lifespan(app):
         try: await task
         except asyncio.CancelledError:pass
 
-app=FastAPI(title='Вместе — два расписания',version='0.1.6',docs_url=None,redoc_url=None,lifespan=lifespan)
+app=FastAPI(title='Вместе — два расписания',version='0.1.7',docs_url=None,redoc_url=None,lifespan=lifespan)
 app.add_middleware(SessionMiddleware,secret_key=secret,same_site='lax',https_only=os.getenv('COOKIE_SECURE','0')=='1',max_age=60*60*24*30,session_cookie='vmeste_session')
 
 @app.middleware('http')
@@ -333,6 +334,7 @@ def serialize_event(e):
     raw['manually_edited']=bool(override)
     raw['subgroup']=e.subgroup
     raw['note']=str(override.get('note') or '')
+    raw['exclusion_scope']=scope_for_event(e)
     return raw
 
 @app.get('/api/schedule')
@@ -350,7 +352,9 @@ async def get_schedule(request:Request,date_from:str|None=None,date_to:str|None=
     with SessionLocal() as db:
         # An override can move an imported event to another day: fetch all scoped events, filter on effective date.
         events=db.scalars(select(Event).where(Event.couple_id==u.couple_id)).all()
-        displayed=[serialize_event(e) for e in events if e.active or json.loads(e.override_json or '{}')]
+        exclusions=rules_for_couple(db,u.couple_id)
+        excluded=exclusion_keys(exclusions)
+        displayed=[serialize_event(e) for e in events if (e.active or json.loads(e.override_json or '{}')) and event_key(e) not in excluded]
         displayed=[e for e in displayed if a<=e['date']<=b]
         displayed.sort(key=lambda x:(x['date'],x['start'],x['slot'],x['id']))
         states=db.scalars(select(SyncState).where(SyncState.couple_id==u.couple_id)).all()
@@ -361,9 +365,11 @@ async def get_schedule(request:Request,date_from:str|None=None,date_to:str|None=
                                 'coverage_from':s.coverage_from,'coverage_to':s.coverage_to} for s in states}
         return {'events':displayed,'tasks':tasks_for_user(db,u,a,b),'tasks_complete':True,
                 'tasks_coverage':{'from':a,'to':b},'sources':state_by_slot,
+                'exclusions':[serialize_rule(rule) for rule in exclusions],'exclusions_complete':True,
                 'academic_calendars':academic_calendars(),'server_now':datetime.now(MOSCOW).isoformat()}
 
 register_task_routes(app,get_user,notify)
+register_exclusion_routes(app,get_user,notify)
 
 class EventPayload(BaseModel):
     slot:str=Field(pattern=r'^(mai|mgsu)$')
@@ -489,4 +495,5 @@ def service_worker():return FileResponse(ROOT/'static'/'sw.js',media_type='appli
 
 @app.get('/healthz')
 def health():return {'ok':True}
+
 
