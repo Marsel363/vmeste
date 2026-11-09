@@ -223,7 +223,7 @@ async def lifespan(app):
         try: await task
         except asyncio.CancelledError:pass
 
-app=FastAPI(title='Вместе — два расписания',version='0.1.8',docs_url=None,redoc_url=None,lifespan=lifespan)
+app=FastAPI(title='Вместе — два расписания',version='0.1.9',docs_url=None,redoc_url=None,lifespan=lifespan)
 app.add_middleware(SessionMiddleware,secret_key=secret,same_site='lax',https_only=os.getenv('COOKIE_SECURE','0')=='1',max_age=60*60*24*30,session_cookie='vmeste_session')
 
 @app.middleware('http')

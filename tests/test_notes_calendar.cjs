@@ -14,6 +14,7 @@ assert.equal(run("lessonNoteHtml({note:''})"),'');
 assert.equal(run("isCurrentLesson(state.events[0],'2026-11-09','11:30')"),true);
 assert.equal(run("isCurrentLesson(state.events[0],'2026-11-09','12:50')"),false);
 assert.equal(run("isCurrentLesson({...state.events[0],cancelled:true})"),false);
+assert.equal(run("isCurrentLesson({...state.events[0],not_going:true})"),false);
 assert.equal(run("isCurrentLesson({...state.events[0],conflict:true})"),false);
 assert.equal(run("isCurrentLesson({...state.events[0],date:'2026-11-10'})"),false);
 run("moscowTime=()=> '13:00'");
@@ -41,3 +42,19 @@ assert.equal(run("nextStudyDay([{date:'2026-11-10',start:'10:00',end:'11:20',can
 assert.match(source,/<textarea name="note" maxlength="1000"/);
 assert.match(source,/name="note"[^>]*>[\s\S]*?esc\(v.note\)/);
 console.log('Shared notes, academic weeks, calendar and current lesson: passed');
+
+run("state.day='2026-11-09'");
+for(const [clock,count] of [['07:59',0],['08:00',1],['08:29',1],['08:30',1],['21:59',1],['22:00',0]]){
+ run(`moscowTime=()=> '${clock}'`);
+ const html=run('compareHtml()');
+ assert.equal((html.match(/aria-current="time"/g)||[]).length,count);
+ assert.match(html,new RegExp(`Сейчас ${clock} · МСК`));
+ if(!count)assert.match(html,/Вне шкалы/);
+}
+run("moscowTime=()=> '08:30'");
+assert.match(run('compareHtml()'),/aria-current="time"[^>]*><span class="compare-time">08:30/);
+for(const day of ['2026-11-08','2026-11-10']){
+ run(`state.day='${day}'`);
+ assert.doesNotMatch(run('compareHtml()'),/aria-current="time"|compare-now-pill/);
+}
+console.log('Comparison current time: today only, half-hour boundaries and outside displayed hours passed');
