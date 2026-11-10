@@ -185,6 +185,44 @@ def test_schedule_endpoint_exposes_period_and_failed_recheck(monkeypatch):
         data=client.get('/api/schedule?date_from=2026-11-02&date_to=2026-11-08').json()
         assert len(data['events'])==14
         assert data['sources']['mgsu']['reliable'] is False
+        assert data['sources']['mgsu']['loaded'] is True
+
+
+def test_saved_pdf_covers_empty_weekend_without_claiming_fresh_download(monkeypatch):
+    from fastapi.testclient import TestClient
+    from app.database import User
+    async def no_sync(*a,**k):return {}
+    monkeypatch.setattr(main,'sync_couple',no_sync)
+    with SessionLocal() as db:
+        db.add(User(couple_id=1,username='pdf-coverage',display_name='Тест',slot='mgsu',password_hash=main.pw_hash('test-password')))
+        db.commit()
+    main.apply_remote(1,'mgsu',[lesson('2026-11-03')],'mgsu_pdf',coverage=('2026-11-02','2026-12-20'),sync_status='baseline',source_note='Сохранённый официальный PDF')
+    with TestClient(main.app) as client:
+        headers={'Origin':'http://localhost:8000','X-Vmeste-Client':'pwa'}
+        assert client.post('/api/login',json={'username':'pdf-coverage','password':'test-password'},headers=headers).status_code==200
+        for day in ['2026-11-07','2026-11-08','2026-11-14','2026-11-15']:
+            data=client.get(f'/api/schedule?date_from={day}&date_to={day}').json()
+            assert data['events']==[]
+            source=data['sources']['mgsu']
+            assert source['loaded'] is True and source['reliable'] is False
+            assert source['status']=='baseline' and source['coverage_from']<=day<=source['coverage_to']
+        main.set_sync_error(1,'mgsu','Проверка не удалась')
+        source=client.get('/api/schedule').json()['sources']['mgsu']
+        assert source['loaded'] is True and source['reliable'] is False and source['status']=='error'
+
+
+def test_first_failed_import_is_not_loaded(monkeypatch):
+    from fastapi.testclient import TestClient
+    from app.database import User
+    async def no_sync(*a,**k):return {}
+    monkeypatch.setattr(main,'sync_couple',no_sync)
+    with SessionLocal() as db:
+        db.add(User(couple_id=1,username='no-coverage',display_name='Тест',slot='mgsu',password_hash=main.pw_hash('test-password')));db.commit()
+    main.set_sync_error(1,'mgsu','Не удалось загрузить')
+    with TestClient(main.app) as client:
+        client.post('/api/login',json={'username':'no-coverage','password':'test-password'},headers={'Origin':'http://localhost:8000','X-Vmeste-Client':'pwa'})
+        source=client.get('/api/schedule').json()['sources']['mgsu']
+        assert source['loaded'] is False and source['successful_at'] is None
 
 def test_provider_change_transfers_unambiguous_manual_override(monkeypatch):
     old=lesson('2026-11-09',title='КОП Информатика')

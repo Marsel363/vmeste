@@ -223,7 +223,7 @@ async def lifespan(app):
         try: await task
         except asyncio.CancelledError:pass
 
-app=FastAPI(title='Вместе — два расписания',version='0.1.9',docs_url=None,redoc_url=None,lifespan=lifespan)
+app=FastAPI(title='Вместе — два расписания',version='0.1.10',docs_url=None,redoc_url=None,lifespan=lifespan)
 app.add_middleware(SessionMiddleware,secret_key=secret,same_site='lax',https_only=os.getenv('COOKIE_SECURE','0')=='1',max_age=60*60*24*30,session_cookie='vmeste_session')
 
 @app.middleware('http')
@@ -362,6 +362,8 @@ async def get_schedule(request:Request,date_from:str|None=None,date_to:str|None=
         states=db.scalars(select(SyncState).where(SyncState.couple_id==u.couple_id)).all()
         state_by_slot={s.slot:{'status':s.status,'message':s.message,'count':s.count,
                                 'reliable':bool(s.status in ('ok','partial') and s.count>0 and s.successful_at and aware(s.successful_at)>=now()-timedelta(hours=SYNC_INTERVAL)),
+                                # A saved semester grid is usable even when a fresh check failed.
+                                'loaded':bool(s.successful_at and s.count>0 and s.coverage_from and s.coverage_to and s.coverage_from<=s.coverage_to and s.status not in ('never','unverified')),
                                 'checked_at':aware(s.checked_at).isoformat() if s.checked_at else None,
                                 'successful_at':aware(s.successful_at).isoformat() if s.successful_at else None,
                                 'coverage_from':s.coverage_from,'coverage_to':s.coverage_to} for s in states}
